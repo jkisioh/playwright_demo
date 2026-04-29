@@ -19,6 +19,7 @@ test.describe('Login', () => {
     await passwordInput.fill(PASSWORD);
     await loginButton.click();
 
+    await page.waitForURL(url => !url.pathname.includes('/login'), { timeout: 15000 });
     await expect(page).not.toHaveURL(/\/login/i);
   });
 });
