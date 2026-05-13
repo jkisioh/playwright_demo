@@ -18,43 +18,40 @@ test.describe('Collaboration', () => {
     await page.waitForURL(url => url.pathname !== '/login');
   });
 
-  test('creates a collaboration call from the Community of Educators page', async ({ page }) => {
-    // Navigate to the community detail page and open the Collaboration calls tab
+  test('creates a collaboration call with July 2026 dates and invites a collaborator', async ({ page }) => {
+    const callTitle = `Test Call ${Date.now()}`;
+
     await page.goto(COMMUNITY_URL);
     await page.waitForLoadState('networkidle');
     await page.getByRole('tab', { name: 'Collaboration calls' }).click();
 
-    // Open the Create modal
     await page.getByRole('button', { name: 'Create', exact: true }).click();
     await expect(dialog(page)).toBeVisible();
 
-    // ── Step 1: topic picker ──────────────────────────────────────────────────
+    // ── Step 1: Topic picker ──────────────────────────────────────────────────
     await expect(dialog(page).locator('h2')).toContainText('What topic will your collaboration be dedicated to?');
-    const firstBadge = dialog(page).locator('[data-slot="badge"]').first();
-    await expect(firstBadge).toBeVisible();
-    await firstBadge.click();
+    await dialog(page).locator('[data-slot="badge"]').first().click();
     await dialog(page).getByRole('button', { name: 'Next', exact: true }).click();
 
     // ── Step 2: Create Collaboration Space ────────────────────────────────────
     await expect(dialog(page).locator('h2')).toContainText('Create Collaboration Space');
-
-    // Community is pre-selected as "Community of Educators" — leave it.
     await expect(dialog(page).getByRole('combobox').first()).toContainText('Community of Educators');
 
-    // Title (second input; first belongs to the hidden combobox search)
-    await dialog(page).locator('input[placeholder="Enter a descriptive title"]').fill('Call for papers');
+    await dialog(page).locator('input[placeholder="Enter a descriptive title"]').fill(callTitle);
 
-    // Description (rich-text area)
-    await dialog(page).locator('textarea').fill('Call for papers');
+    await dialog(page)
+      .getByPlaceholder('Describe the purpose and goals of this collaboration...')
+      .fill(callTitle);
 
     await dialog(page).getByRole('button', { name: 'Next', exact: true }).click();
 
-    // ── Step 3: Select a due date ─────────────────────────────────────────────
+    // ── Step 3: Select a due date (July 2026) ─────────────────────────────────
     await expect(dialog(page).locator('h2')).toContainText('Select a due date');
 
-    // The calendar renders two months side-by-side (rdp-month).
-    // Always pick the first and last enabled days of the right-hand (later) month
-    // so the selection is always a valid future range regardless of when tests run.
+    // Default view is May/June 2026. Advance once to show June/July 2026.
+    await dialog(page).getByRole('button', { name: 'Go to the Next Month' }).click();
+
+    // Pick first and last enabled days of the right-hand month (July 2026).
     const rightMonth = dialog(page).locator('.rdp-month').last();
     const enabledDays = rightMonth.locator('td button:not([disabled])');
     await enabledDays.first().click();
@@ -62,18 +59,31 @@ test.describe('Collaboration', () => {
 
     await dialog(page).getByRole('button', { name: 'Next', exact: true }).click();
 
-    // ── Step 4: Assign a mentor ───────────────────────────────────────────────
+    // ── Step 4: Assign a mentor (none) ────────────────────────────────────────
     await expect(dialog(page).locator('h2')).toContainText('Assign a mentor');
-
-    // The logged-in user (Jonah Kisioh) is pre-assigned — just advance.
     await dialog(page).getByRole('button', { name: 'Next', exact: true }).click();
 
-    // ── Step 5: Invite users ──────────────────────────────────────────────────
-    await expect(dialog(page).locator('h2')).toContainText('Invite users and collaborators');
-    await dialog(page).getByRole('button', { name: 'Skip' }).click();
+    // ── Step 5: Collaboration kind (Public is pre-selected) ───────────────────
+    await expect(dialog(page).locator('h2')).toContainText('What kind of collaboration is this?');
+    await dialog(page).getByRole('button', { name: 'Next', exact: true }).click();
 
-    // ── Step 6: Success ───────────────────────────────────────────────────────
-    await expect(dialog(page).getByText('Collaboration Created!')).toBeVisible({ timeout: 10000 });
-    await expect(dialog(page)).toContainText('Call for papers');
+    // ── Step 6: Invite users ──────────────────────────────────────────────────
+    await expect(dialog(page).locator('h2')).toContainText('Invite users and collaborators');
+    await dialog(page).locator('input[type="email"]').first().fill('jonah+1@akvo.org');
+    await dialog(page).getByRole('button', { name: 'Send invites' }).click();
+
+    // ── Step 7: Success — navigate to the call page ───────────────────────────
+    await expect(dialog(page).getByText('Collaboration Created!')).toBeVisible({ timeout: 10_000 });
+    await expect(dialog(page)).toContainText(callTitle);
+
+    await dialog(page).getByRole('button', { name: 'Access page' }).click();
+    await page.waitForURL(url => url.pathname.includes('/calls/'));
+    await expect(page).toHaveURL(/\/calls\//);
+
+    // ── Post a message on the call page ──────────────────────────────────────
+    const message = 'happy to join and start collavorating';
+    await page.getByRole('textbox').fill(message);
+    await page.getByRole('button', { name: 'Send', exact: true }).click();
+    await expect(page.getByText(message)).toBeVisible({ timeout: 10_000 });
   });
 });
