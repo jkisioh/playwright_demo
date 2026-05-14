@@ -20,6 +20,7 @@ test.describe('Login', () => {
     await loginButton.click();
 
     await page.waitForURL(url => !url.pathname.includes('/login'), { timeout: 15000 });
-    await expect(page).not.toHaveURL(/\/login/i);
+    await page.goto(`${BASE_URL}/profile`);
+    await expect(page).toHaveURL(`${BASE_URL}/profile`);
   });
 });
